@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>QuestorOS Memory — ICARE³ Judge Demo</title>
+  <style>
+    :root{color-scheme:dark;font-family:Inter,ui-sans-serif,system-ui,sans-serif;background:#09090b;color:#f4f4f5}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top right,#172554 0,transparent 32%),#09090b}main{max-width:1180px;margin:0 auto;padding:42px 24px 70px}.chips{display:flex;flex-wrap:wrap;gap:8px}.chip{border:1px solid #3f3f46;border-radius:999px;padding:7px 11px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;background:#18181b}.green{color:#86efac;border-color:#166534;background:#052e16}.violet{color:#c4b5fd;border-color:#5b21b6;background:#2e1065}.cyan{color:#67e8f9;border-color:#155e75;background:#083344}h1{font-size:clamp(38px,6vw,64px);line-height:1;letter-spacing:-.045em;margin:22px 0 16px}.lead{max-width:880px;color:#a1a1aa;font-size:18px;line-height:1.65}.grid{display:grid;grid-template-columns:.92fr 1.08fr;gap:22px;margin-top:34px}.card{border:1px solid #27272a;border-radius:24px;background:rgba(24,24,27,.88);box-shadow:0 18px 60px rgba(0,0,0,.25);padding:22px}label{display:block;font-weight:750}.muted{color:#a1a1aa;font-size:13px;line-height:1.55;margin-top:6px}input{width:100%;border:1px solid #3f3f46;border-radius:12px;padding:13px 14px;margin-top:12px;background:#09090b;color:#f4f4f5;font:14px ui-monospace,monospace}.steps{display:grid;gap:10px;margin-top:16px}.step{display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid #3f3f46;border-radius:16px;padding:14px;background:#09090b}.step.done{border-color:#166534;background:#052e16}.step.error{border-color:#991b1b;background:#450a0a}.step.working{border-color:#155e75;background:#083344}.step-title{font-size:14px;font-weight:700}.status{margin-top:4px;color:#a1a1aa;font-size:10px;text-transform:uppercase;letter-spacing:.14em}button{border:0;border-radius:11px;padding:10px 13px;background:#f4f4f5;color:#09090b;font-weight:800;cursor:pointer;white-space:nowrap}button:disabled{opacity:.35;cursor:not-allowed}pre{margin:16px 0 0;max-height:640px;overflow:auto;white-space:pre-wrap;word-break:break-word;border:1px solid #3f3f46;border-radius:16px;background:#09090b;padding:16px;color:#d4d4d8;font:12px/1.65 ui-monospace,monospace}.kicker{color:#c4b5fd;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.16em}.icare{margin-top:18px;border:1px solid #155e75;background:#083344;border-radius:18px;padding:16px;color:#a5f3fc;font-size:13px;line-height:1.65}@media(max-width:860px){.grid{grid-template-columns:1fr}.step{align-items:flex-start;flex-direction:column}button{width:100%}}
+  </style>
+</head>
+<body>
+<main>
+  <div class="chips"><span class="chip green">Synthetic data only</span><span class="chip violet">Apache 2.0 reference</span><span class="chip cyan">CockroachDB + AWS Bedrock</span></div>
+  <h1>QuestorOS Memory — ICARE³ Judge Demo</h1>
+  <p class="lead">A reproducible demonstration of persistent organizational memory: verify CockroachDB, store synthetic context, create a 1,024-dimension embedding, retrieve with an explanation, correct with revision history, and delete.</p>
+  <div class="grid">
+    <section>
+      <div class="card"><label for="key">Judge demo key</label><div class="muted">Use the value configured as <code>JUDGE_API_KEY</code>. The field is masked and the key is never written to the repository.</div><input id="key" type="password" autocomplete="off" placeholder="qmem_live_…" /></div>
+      <div class="card" style="margin-top:18px"><div class="kicker">Live proof flow</div><div class="steps" id="steps"></div></div>
+    </section>
+    <section>
+      <div class="card"><div class="kicker">Live response</div><h2 style="margin:8px 0 0">Evidence returned by the Memory API</h2><pre id="result">{"message":"Start with the CockroachDB readiness check."}</pre></div>
+      <div class="icare"><strong>ICARE³ lifecycle</strong><br/>Issue → Context → Analysis → Recommendations → Human Evaluation → Execution → Outcome Evaluation.</div>
+    </section>
+  </div>
+</main>
+<script>
+const state={apiKey:'',identity:null,memoryId:null,runMarker:null};
+const result=document.getElementById('result');
+const key=document.getElementById('key');
+key.addEventListener('input',()=>{state.apiKey=key.value.trim();render()});
+const actions=[
+ ['1. Verify live CockroachDB connectivity','Check CockroachDB',ready],
+ ['2. Verify isolated judge access','Verify access',whoami],
+ ['3. Store a synthetic ICARE³ memory','Store memory',createMemory],
+ ['4. Generate a 1,024-dimension embedding','Generate vector',generateEmbedding],
+ ['5. Retrieve it with explainable vector search','Retrieve + explain',searchMemory],
+ ['6. Correct the memory and preserve history','Correct memory',correctMemory],
+ ['7. Show immutable revision history','Show revisions',showRevisions],
+ ['8. Delete the disposable demo memory','Delete demo memory',deleteMemory]
+];
+const statuses=actions.map(()=> 'idle');
+function show(value){result.textContent=JSON.stringify(value,null,2)}
+async function api(path,options={}){const headers={'content-type':'application/json',...(options.auth?{authorization:`Bearer ${state.apiKey}`}:{})};const response=await fetch(path,{method:options.method||'GET',headers,body:options.body?JSON.stringify(options.body):undefined});const data=await response.json();if(!response.ok)throw new Error(data.error||`HTTP ${response.status}`);return data}
+async function run(i,fn){statuses[i]='working';render();try{const data=await fn();statuses[i]='done';show(data)}catch(error){statuses[i]='error';show({error:error.message})}render()}
+function ready(){return run(0,()=>api('/readyz'))}
+function whoami(){return run(1,async()=>{const data=await api('/v1/whoami',{auth:true});state.identity=data;return data})}
+function createMemory(){return run(2,async()=>{if(!state.identity)throw new Error('Verify access first.');const marker=`judge-${Date.now().toString(36)}`;const data=await api('/v1/memories',{method:'POST',auth:true,body:{memoryType:'DECISION',title:`Harborview Tower closing deadline — ${marker}`,content:`Harborview Tower legacy context lists the closing deadline as July 15, 2026. Demo marker: ${marker}. This is synthetic hackathon data.`,icareStage:'CONTEXT',metadata:{synthetic:true,demo:'devpost-2026',marker}}});state.memoryId=data.id;state.runMarker=marker;return data})}
+function generateEmbedding(){return run(3,()=>{if(!state.memoryId)throw new Error('Store memory first.');return api(`/v1/memories/${state.memoryId}/embedding/generate`,{method:'POST',auth:true,body:{force:true}})})}
+function searchMemory(){return run(4,()=>{if(!state.runMarker)throw new Error('Store memory first.');return api('/v1/memories/search',{method:'POST',auth:true,body:{queryText:`Harborview Tower closing deadline ${state.runMarker}`,limit:5}})})}
+function correctMemory(){return run(5,()=>{if(!state.memoryId||!state.runMarker)throw new Error('Store memory first.');return api(`/v1/memories/${state.memoryId}/corrections`,{method:'POST',auth:true,body:{content:`Harborview Tower closing deadline is August 20, 2026. This supersedes the legacy July 15 date. Demo marker: ${state.runMarker}. This is synthetic hackathon data.`,reason:'Synthetic meeting and lease evidence supersede the legacy CRM date.',icareStage:'RECOMMENDATION_EVALUATION'}})})}
+function showRevisions(){return run(6,()=>{if(!state.memoryId)throw new Error('Store memory first.');return api(`/v1/memories/${state.memoryId}/revisions`,{auth:true})})}
+function deleteMemory(){return run(7,async()=>{if(!state.memoryId)throw new Error('Store memory first.');const data=await api(`/v1/memories/${state.memoryId}`,{method:'DELETE',auth:true});state.memoryId=null;state.runMarker=null;return data})}
+function disabled(i){if(i===0)return false;if(i===1)return !state.apiKey;if(i===2)return !state.identity;return !state.memoryId}
+function render(){const el=document.getElementById('steps');el.innerHTML='';actions.forEach(([title,label,fn],i)=>{const step=document.createElement('div');step.className=`step ${statuses[i]}`;const copy=document.createElement('div');copy.innerHTML=`<div class="step-title">${title}</div><div class="status">${statuses[i]}</div>`;const button=document.createElement('button');button.textContent=statuses[i]==='working'?'Running…':label;button.disabled=disabled(i)||statuses[i]==='working';button.onclick=fn;step.append(copy,button);el.appendChild(step)})}
+render();
+</script>
+</body>
+</html>
