@@ -6,11 +6,11 @@
   "repository": "https://github.com/QuestorOS-ai/questoros-memory-hackathon-2026",
   "description": "QuestorOS Memory — ICARE3 judge reference implementation using CockroachDB and AWS Bedrock",
   "scripts": {
-    "dev": "tsx watch src/server.ts",
-    "start": "tsx src/server.ts",
+    "dev": "node --watch --env-file=.env --import tsx src/server.ts",
+    "start": "node --env-file=.env --import tsx src/server.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "db:init": "tsx scripts/init-db.ts"
+    "db:init": "node --env-file=.env --import tsx scripts/init-db.ts"
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.864.0",
