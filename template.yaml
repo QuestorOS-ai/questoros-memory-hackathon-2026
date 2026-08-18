@@ -1,0 +1,80 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: QuestorOS Memory hackathon judge reference API on AWS Lambda + API Gateway.
+
+Parameters:
+  DatabaseSecretName:
+    Type: String
+    Description: Secrets Manager secret name whose plaintext value is the dedicated CockroachDB DATABASE_URL.
+  JudgeApiKeySecretName:
+    Type: String
+    Description: Secrets Manager secret name whose plaintext value is the least-privilege judge bearer key.
+  DemoTenantId:
+    Type: String
+    Default: hackathon-tenant
+  DemoActorId:
+    Type: String
+    Default: hackathon-judge
+  DemoWorkspaceId:
+    Type: String
+    Default: harborview-demo
+
+Resources:
+  MemoryHttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: staging
+
+  MemoryApi:
+    Type: AWS::Serverless::Function
+    Properties:
+      Runtime: nodejs22.x
+      Architectures:
+        - x86_64
+      Handler: src/lambda.handler
+      CodeUri: .
+      MemorySize: 1024
+      Timeout: 30
+      Environment:
+        Variables:
+          DATABASE_URL: !Sub '{{resolve:secretsmanager:${DatabaseSecretName}:SecretString}}'
+          JUDGE_API_KEY: !Sub '{{resolve:secretsmanager:${JudgeApiKeySecretName}:SecretString}}'
+          DEMO_TENANT_ID: !Ref DemoTenantId
+          DEMO_ACTOR_ID: !Ref DemoActorId
+          DEMO_WORKSPACE_ID: !Ref DemoWorkspaceId
+          AWS_BEDROCK_REGION: us-west-2
+          BEDROCK_EMBEDDING_MODEL: amazon.titan-embed-text-v2:0
+          BEDROCK_EMBEDDING_DIMENSIONS: '1024'
+      Policies:
+        - Statement:
+            - Sid: InvokeTitanTextEmbeddingsV2
+              Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+              Resource: !Sub arn:${AWS::Partition}:bedrock:us-west-2::foundation-model/amazon.titan-embed-text-v2:0
+      Events:
+        RootApi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MemoryHttpApi
+            Path: /
+            Method: ANY
+        ProxyApi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MemoryHttpApi
+            Path: /{proxy+}
+            Method: ANY
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints:
+          - src/lambda.ts
+        Target: es2022
+        Minify: false
+        Sourcemap: true
+
+Outputs:
+  ApiUrl:
+    Description: Staging HTTP API base URL.
+    Value: !Sub https://${MemoryHttpApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}/staging
