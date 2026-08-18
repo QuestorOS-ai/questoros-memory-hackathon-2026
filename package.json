@@ -1,8 +1,9 @@
 {
   "name": "questoros-memory-hackathon-2026",
   "version": "1.0.0",
-  "private": true,
   "type": "module",
+  "license": "Apache-2.0",
+  "repository": "https://github.com/QuestorOS-ai/questoros-memory-hackathon-2026",
   "description": "QuestorOS Memory — ICARE3 judge reference implementation using CockroachDB and AWS Bedrock",
   "scripts": {
     "dev": "tsx watch src/server.ts",
