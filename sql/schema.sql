@@ -39,6 +39,8 @@ CREATE TABLE IF NOT EXISTS memory_embeddings (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- CockroachDB vector indexing. Prefixing by tenant preserves retrieval isolation.
+-- CockroachDB Distributed Vector Indexing.
+-- Tenant is the equality prefix used for isolation; vector_cosine_ops matches
+-- the <=> cosine-distance retrieval query in src/server.ts.
 CREATE VECTOR INDEX IF NOT EXISTS memory_embeddings_vector_idx
-  ON memory_embeddings (tenant_id, embedding);
+  ON memory_embeddings (tenant_id, embedding vector_cosine_ops);
