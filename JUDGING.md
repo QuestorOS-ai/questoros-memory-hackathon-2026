@@ -12,7 +12,7 @@ The deployed page is public. The first CockroachDB readiness action requires no 
 
 ### CockroachDB Distributed Vector Indexing
 
-This is in the live memory data path. Memories and revisions are persisted in CockroachDB, Amazon Bedrock generates 1,024-dimension vectors, the vectors are stored in `VECTOR(1024)`, and semantic retrieval uses a tenant-prefixed CockroachDB vector index with cosine distance (`<=>`). The retrieved result is then presented with vector similarity, scope, and explainable scoring evidence.
+This is in the live memory data path. Memories and revisions are persisted in CockroachDB, Amazon Bedrock generates 1,024-dimension vectors, the vectors are stored in `VECTOR(1024)`, and semantic retrieval uses a tenant-prefixed CockroachDB vector index with `vector_cosine_ops` and cosine distance (`<=>`). The retrieved result is then presented with vector similarity, scope, and explainable scoring evidence.
 
 ### CockroachDB Cloud Managed MCP Server
 
@@ -22,7 +22,9 @@ The safe placeholder configuration is at `.cursor/mcp.example.json`; it contains
 
 ### AWS services
 
-The isolated staging Memory API is deployed with AWS Lambda behind an Amazon API Gateway HTTP API. Amazon Bedrock Titan Text Embeddings V2 generates the memory vectors. The governed-harvest path also uses Amazon Bedrock Nova Micro for bounded, proposal-only structured reasoning. IAM permissions are scoped to the required staging operations.
+The isolated staging Memory API is deployed with **AWS Lambda** behind an **Amazon API Gateway HTTP API**. **Amazon Bedrock Titan Text Embeddings V2** generates the 1,024-dimension memory vectors. The public source includes the Lambda adapter (`src/lambda.ts`) and reproducible AWS SAM definition (`template.yaml`) with a least-privilege Titan `bedrock:InvokeModel` policy and Secrets Manager references for sensitive configuration.
+
+The full private staging implementation contains additional bounded reasoning features, but they are not required to reproduce or judge the submitted store/embed/retrieve/correct/delete flow.
 
 ## Expected proof flow
 
@@ -48,6 +50,17 @@ npm start
 ```
 
 Then open `http://127.0.0.1:8788`.
+
+## Deploy this repository on AWS
+
+After creating dedicated Secrets Manager values for the CockroachDB URL and judge bearer key:
+
+```bash
+sam build
+sam deploy --guided --region ap-southeast-1
+```
+
+The deployment uses `template.yaml`; no real AWS account identifiers or secret values are committed.
 
 ## Data policy
 
