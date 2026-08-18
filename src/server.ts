@@ -150,9 +150,12 @@ app.post('/v1/memories/search', async (request) => {
        e.model AS embedding_model,
        e.dimensions AS embedding_dimensions,
        (1.0 - (e.embedding <=> $1::VECTOR(1024)))::FLOAT8 AS vector_similarity
-     FROM memories AS m
-     JOIN memory_embeddings AS e ON e.memory_id = m.id
-     WHERE m.tenant_id = $2
+     FROM memory_embeddings AS e
+     JOIN memories AS m
+       ON m.id = e.memory_id
+      AND m.tenant_id = e.tenant_id
+     WHERE e.tenant_id = $2
+       AND m.tenant_id = $2
        AND m.workspace_id = $3
        AND m.deleted_at IS NULL
      ORDER BY e.embedding <=> $1::VECTOR(1024)
