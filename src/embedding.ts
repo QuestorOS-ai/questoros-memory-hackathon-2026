@@ -1,6 +1,6 @@
 import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
 
-const region = process.env.AWS_REGION || 'ap-southeast-1';
+const region = process.env.AWS_BEDROCK_REGION || 'us-west-2';
 const modelId = process.env.BEDROCK_EMBEDDING_MODEL || 'amazon.titan-embed-text-v2:0';
 const dimensions = Number(process.env.BEDROCK_EMBEDDING_DIMENSIONS || '1024');
 
@@ -38,7 +38,7 @@ export async function embedText(text: string): Promise<EmbeddingResult> {
   const vector = decoded.embedding;
 
   if (!Array.isArray(vector) || vector.length !== dimensions) {
-    throw new Error(`Bedrock returned an unexpected embedding shape.`);
+    throw new Error('Bedrock returned an unexpected embedding shape.');
   }
 
   return {
