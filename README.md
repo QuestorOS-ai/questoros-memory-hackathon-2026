@@ -18,11 +18,11 @@ This is part of the live memory retrieval path:
 
 - memories and revisions persist in CockroachDB;
 - embeddings persist in a native `VECTOR(1024)` column;
-- the schema creates a tenant-prefixed native `VECTOR INDEX`;
+- the schema creates a tenant-prefixed native `VECTOR INDEX` using `vector_cosine_ops`;
 - semantic retrieval executes in CockroachDB with cosine distance (`<=>`); and
 - the returned result includes an explainable score and authorized scope.
 
-See [`sql/schema.sql`](sql/schema.sql), [`src/server.ts`](src/server.ts), and [`docs/cockroachdb-tools.md`](docs/cockroachdb-tools.md).
+See [`sql/schema.sql`](sql/schema.sql), [`src/app.ts`](src/app.ts), and [`docs/cockroachdb-tools.md`](docs/cockroachdb-tools.md).
 
 ### CockroachDB tool 2 — CockroachDB Cloud Managed MCP Server
 
@@ -38,14 +38,14 @@ Application writes and migrations remain on the scoped application database conn
 
 ### AWS services
 
-The actual isolated staging Memory API is deployed on AWS. The implementation uses:
+The isolated staging Memory API is deployed on AWS. The public reference implementation includes the same required deployment pattern:
 
-- **AWS Lambda** for the staging Memory REST API;
-- **Amazon API Gateway HTTP API** as its staging HTTP front door;
-- **Amazon Bedrock Titan Text Embeddings V2** for the 1,024-dimension memory embeddings; and
-- **Amazon Bedrock Nova Micro** for bounded, proposal-only structured reasoning in the governed-harvest path.
+- **AWS Lambda** runs the Memory REST API;
+- **Amazon API Gateway HTTP API** exposes the Lambda API;
+- **Amazon Bedrock Titan Text Embeddings V2** generates the 1,024-dimension memory embeddings; and
+- **AWS Secrets Manager references** keep the CockroachDB URL and judge bearer key out of source and deployment templates.
 
-AWS access is least-privilege and the judge demo does not expose AWS credentials.
+The runnable AWS SAM definition is in [`template.yaml`](template.yaml), and the API Gateway v2 Lambda adapter is in [`src/lambda.ts`](src/lambda.ts). Bedrock invocation is constrained to the Titan embedding model in the example IAM policy.
 
 ## What the demo proves
 
@@ -71,7 +71,10 @@ The reference implementation focuses on the durable-memory portion of that lifec
 Browser / AI agent
         |
         v
-Fastify REST API
+Amazon API Gateway (live staging / AWS deployment)
+        |
+        v
+AWS Lambda — Fastify Memory API
         |
         +--> scoped bearer authentication
         |
@@ -82,18 +85,27 @@ CockroachDB
   ├── memories
   ├── memory_revisions
   └── memory_embeddings VECTOR(1024)
-          └── tenant-prefixed VECTOR INDEX
+          └── tenant-prefixed cosine VECTOR INDEX
+
+AI development / QA agent
+        |
+        v
+CockroachDB Cloud Managed MCP Server (read-only)
+        |
+        v
+CockroachDB schema / diagnostics / retrieval verification
 ```
 
-The vector retrieval query uses CockroachDB's cosine-distance operator (`<=>`) and keeps the query inside the authorized tenant/workspace scope.
+The vector retrieval query uses CockroachDB's cosine-distance operator (`<=>`) and directly constrains the vector index's tenant prefix before applying the workspace scope.
 
 ## Requirements
 
 - Node.js 22+
 - A CockroachDB cluster/database
 - AWS credentials with permission to invoke the configured Bedrock embedding model
+- Optional for AWS deployment: AWS SAM CLI
 
-## Setup
+## Local setup
 
 ```bash
 git clone https://github.com/QuestorOS-ai/questoros-memory-hackathon-2026.git
@@ -102,7 +114,7 @@ npm install
 cp .env.example .env
 ```
 
-Fill in `.env` with a **dedicated demo CockroachDB connection string**, a judge API key, and your AWS region/model configuration.
+Fill in `.env` with a **dedicated demo CockroachDB connection string**, a judge API key, and the Bedrock model configuration.
 
 Initialize the schema:
 
@@ -122,6 +134,22 @@ Open:
 http://127.0.0.1:8788
 ```
 
+## AWS deployment
+
+The reference API can be built and deployed with AWS SAM using [`template.yaml`](template.yaml). The template expects two existing AWS Secrets Manager secrets whose **plaintext secret values** are:
+
+1. the dedicated CockroachDB connection string; and
+2. the least-privilege judge bearer key.
+
+No real secret names or values are committed. After initializing the CockroachDB schema, run:
+
+```bash
+sam build
+sam deploy --guided --region ap-southeast-1
+```
+
+During the guided deployment, provide the two secret names when prompted for `DatabaseSecretName` and `JudgeApiKeySecretName`. The Lambda deployment region can remain Singapore while Bedrock inference is explicitly targeted to `us-west-2` with `AWS_BEDROCK_REGION`.
+
 ## Environment variables
 
 | Variable | Purpose |
@@ -131,10 +159,10 @@ http://127.0.0.1:8788
 | `DEMO_TENANT_ID` | Synthetic tenant scope |
 | `DEMO_ACTOR_ID` | Synthetic judge actor |
 | `DEMO_WORKSPACE_ID` | Synthetic workspace scope |
-| `AWS_REGION` | AWS region for Bedrock |
+| `AWS_BEDROCK_REGION` | AWS region used for Bedrock inference |
 | `BEDROCK_EMBEDDING_MODEL` | Titan embedding model ID |
 | `BEDROCK_EMBEDDING_DIMENSIONS` | Fixed to `1024` for this demo |
-| `PORT` | HTTP port, default `8788` |
+| `PORT` | Local HTTP port, default `8788` |
 
 Never commit a real database URL, AWS credential, CockroachDB cluster credential, or `qmem_live_...` judge key. `.env` files are ignored by Git.
 
@@ -226,12 +254,15 @@ Authorization: Bearer <judge-key>
 .cursor/mcp.example.json          # safe CockroachDB Cloud Managed MCP example
 apps/judge-demo/public/index.html # browser proof flow
 scripts/init-db.ts                # schema initializer
-sql/schema.sql                    # CockroachDB tables + vector index
+sql/schema.sql                    # CockroachDB tables + cosine vector index
+src/app.ts                        # shared REST API implementation
 src/auth.ts                       # least-privilege demo authentication
 src/db.ts                         # CockroachDB connection helpers
-src/embedding.ts                  # Amazon Bedrock embedding adapter
+src/embedding.ts                  # Amazon Bedrock Titan embedding adapter
+src/lambda.ts                     # API Gateway v2 -> Fastify Lambda adapter
 src/scoring.ts                    # explainable retrieval scoring
-src/server.ts                     # REST API + browser host
+src/server.ts                     # local browser/API host
+template.yaml                     # AWS SAM Lambda + API Gateway deployment
 test/scoring.test.ts              # deterministic scoring tests
 JUDGING.md                        # judge verification instructions
 docs/cockroachdb-tools.md         # required CockroachDB tool usage
