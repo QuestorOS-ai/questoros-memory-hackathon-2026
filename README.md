@@ -10,6 +10,43 @@ It demonstrates a complete persistent-memory loop using **CockroachDB** for dura
 
 The deployed judge page uses only synthetic Harborview Tower data and an isolated staging credential. No QuestorOS production data or MemoryOS customer data is used.
 
+## Hackathon resources used
+
+### CockroachDB tool 1 — Distributed Vector Indexing
+
+This is part of the live memory retrieval path:
+
+- memories and revisions persist in CockroachDB;
+- embeddings persist in a native `VECTOR(1024)` column;
+- the schema creates a tenant-prefixed native `VECTOR INDEX`;
+- semantic retrieval executes in CockroachDB with cosine distance (`<=>`); and
+- the returned result includes an explainable score and authorized scope.
+
+See [`sql/schema.sql`](sql/schema.sql), [`src/server.ts`](src/server.ts), and [`docs/cockroachdb-tools.md`](docs/cockroachdb-tools.md).
+
+### CockroachDB tool 2 — CockroachDB Cloud Managed MCP Server
+
+The Cloud Managed MCP Server is used as a read-only AI/development and verification interface for:
+
+- schema inspection;
+- database diagnostics;
+- retrieval verification;
+- checking memory/vector tables and indexes; and
+- index/query recommendations during implementation and QA.
+
+Application writes and migrations remain on the scoped application database connection rather than giving the MCP administrative write authority. A credential-free example is included at [`.cursor/mcp.example.json`](.cursor/mcp.example.json). See [`docs/cockroachdb-tools.md`](docs/cockroachdb-tools.md).
+
+### AWS services
+
+The actual isolated staging Memory API is deployed on AWS. The implementation uses:
+
+- **AWS Lambda** for the staging Memory REST API;
+- **Amazon API Gateway HTTP API** as its staging HTTP front door;
+- **Amazon Bedrock Titan Text Embeddings V2** for the 1,024-dimension memory embeddings; and
+- **Amazon Bedrock Nova Micro** for bounded, proposal-only structured reasoning in the governed-harvest path.
+
+AWS access is least-privilege and the judge demo does not expose AWS credentials.
+
 ## What the demo proves
 
 1. Verify CockroachDB connectivity.
@@ -48,7 +85,7 @@ CockroachDB
           └── tenant-prefixed VECTOR INDEX
 ```
 
-The vector retrieval query uses CockroachDB's pgvector-compatible cosine-distance operator (`<=>`) and keeps the query inside the authorized tenant/workspace scope.
+The vector retrieval query uses CockroachDB's cosine-distance operator (`<=>`) and keeps the query inside the authorized tenant/workspace scope.
 
 ## Requirements
 
@@ -99,7 +136,7 @@ http://127.0.0.1:8788
 | `BEDROCK_EMBEDDING_DIMENSIONS` | Fixed to `1024` for this demo |
 | `PORT` | HTTP port, default `8788` |
 
-Never commit a real database URL, AWS credential, or `qmem_live_...` judge key. `.env` files are ignored by Git.
+Never commit a real database URL, AWS credential, CockroachDB cluster credential, or `qmem_live_...` judge key. `.env` files are ignored by Git.
 
 ## REST API
 
@@ -186,17 +223,19 @@ Authorization: Bearer <judge-key>
 ## Source layout
 
 ```text
-apps/judge-demo/public/index.html  # browser proof flow
-scripts/init-db.ts                 # schema initializer
-sql/schema.sql                     # CockroachDB tables + vector index
-src/auth.ts                        # least-privilege demo authentication
-src/db.ts                          # CockroachDB connection helpers
-src/embedding.ts                   # Amazon Bedrock embedding adapter
-src/scoring.ts                     # explainable retrieval scoring
-src/server.ts                      # REST API + browser host
-test/scoring.test.ts               # deterministic scoring tests
-JUDGING.md                         # judge verification instructions
-docs/pre-existing-work.md          # disclosure boundary
+.cursor/mcp.example.json          # safe CockroachDB Cloud Managed MCP example
+apps/judge-demo/public/index.html # browser proof flow
+scripts/init-db.ts                # schema initializer
+sql/schema.sql                    # CockroachDB tables + vector index
+src/auth.ts                       # least-privilege demo authentication
+src/db.ts                         # CockroachDB connection helpers
+src/embedding.ts                  # Amazon Bedrock embedding adapter
+src/scoring.ts                    # explainable retrieval scoring
+src/server.ts                     # REST API + browser host
+test/scoring.test.ts              # deterministic scoring tests
+JUDGING.md                        # judge verification instructions
+docs/cockroachdb-tools.md         # required CockroachDB tool usage
+docs/pre-existing-work.md         # disclosure boundary
 ```
 
 ## Development checks
@@ -206,7 +245,7 @@ npm run typecheck
 npm test
 ```
 
-GitHub Actions runs both checks on pushes and pull requests.
+A GitHub Actions workflow is included to run these checks on pushes and pull requests. During this submission-preparation session, the connector did not surface a completed Actions run, so this README does not claim that CI has passed.
 
 ## Security boundary
 
@@ -218,7 +257,8 @@ This repository intentionally does **not** contain:
 - production database credentials;
 - AWS secret/access keys;
 - live judge credentials;
-- raw administrative database tooling.
+- raw administrative database tooling; or
+- a real CockroachDB Managed MCP cluster ID or credential.
 
 It is a standalone judge/reference implementation of the submitted Memory functionality.
 
