@@ -8,6 +8,22 @@ Open:
 
 The deployed page is public. The first CockroachDB readiness action requires no key; the remaining memory operations use the separately supplied least-privilege staging judge key.
 
+## Required platform integrations
+
+### CockroachDB Distributed Vector Indexing
+
+This is in the live memory data path. Memories and revisions are persisted in CockroachDB, Amazon Bedrock generates 1,024-dimension vectors, the vectors are stored in `VECTOR(1024)`, and semantic retrieval uses a tenant-prefixed CockroachDB vector index with cosine distance (`<=>`). The retrieved result is then presented with vector similarity, scope, and explainable scoring evidence.
+
+### CockroachDB Cloud Managed MCP Server
+
+This is the read-only AI development and verification path. During implementation and QA, the AI/development agent used the Managed MCP connection to inspect the CockroachDB schema, perform diagnostics, verify memory/vector retrieval structures, inspect indexes, and review query/index recommendations. Database mutations and migrations remain on the application connection rather than granting the MCP administrative write authority.
+
+The safe placeholder configuration is at `.cursor/mcp.example.json`; it contains no real cluster ID or credential. See `docs/cockroachdb-tools.md` for the separation between CockroachDB Managed MCP and the customer-facing QuestorOS Memory MCP interface.
+
+### AWS services
+
+The isolated staging Memory API is deployed with AWS Lambda behind an Amazon API Gateway HTTP API. Amazon Bedrock Titan Text Embeddings V2 generates the memory vectors. The governed-harvest path also uses Amazon Bedrock Nova Micro for bounded, proposal-only structured reasoning. IAM permissions are scoped to the required staging operations.
+
 ## Expected proof flow
 
 1. **Check CockroachDB** — confirms the Memory API can reach its CockroachDB database.
